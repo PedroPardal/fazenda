@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>AgroSim Online - Fazendinha Mobile</title>
+  <style>
+    :root {
+      --bg-dark: #1e293b;
+      --panel-bg: rgba(15, 23, 42, 0.9);
+      --accent: #22c55e;
+      --accent-hover: #16a34a;
+      --text: #f8fafc;
+      --gold: #eab308;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: var(--text);
+      touch-action: none;
+    }
+
+    /* HUD Superior */
+    #top-hud {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(6px);
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      border-bottom: 2px solid #334155;
+      font-size: 13px;
+    }
+
+    .hud-group {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .stat-badge {
+      background: #334155;
+      padding: 4px 10px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 600;
+    }
+
+    .gold-text { color: var(--gold); }
+    .online-dot {
+      width: 8px;
+      height: 8px;
+      background: #22c55e;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #22c55e;
+      display: inline-block;
+    }
+
+    /* Ticker de Mercado Online */
+    #market-ticker {
+      position: fixed;
+      top: 45px;
+      left: 0;
+      width: 100%;
+      background: rgba(30, 41, 59, 0.85);
+      color: #cbd5e1;
+      font-size: 11px;
+      padding: 4px 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      z-index: 9;
+      border-bottom: 1px solid #475569;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* Área do Canvas */
+    #game-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding-top: 65px;
+      padding-bottom: 95px;
+    }
+
+    canvas {
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      background: #4ade80;
+      max-width: 96vw;
+      max-height: 75vh;
+    }
+
+    /* Barra de Ferramentas Inferior (Mobile Friendly) */
+    #bottom-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: var(--panel-bg);
+      backdrop-filter: blur(8px);
+      padding: 8px 6px 14px 6px;
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      z-index: 10;
+      border-top: 2px solid #334155;
+      scrollbar-width: none;
+    }
+
+    #bottom-bar::-webkit-scrollbar { display: none; }
+
+    .tool-btn {
+      flex: 0 0 auto;
+      min-width: 68px;
+      background: #1e293b;
+      border: 2px solid #475569;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 6px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .tool-btn .icon { font-size: 20px; }
+    .tool-btn .cost { font-size: 9px; color: #94a3b8; }
+
+    .tool-btn.active {
+      border-color: var(--accent);
+      background: rgba(34, 197, 94, 0.2);
+      transform: translateY(-3px);
+    }
+
+    /* Modal do Mercado & Coop Online */
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 50;
+      padding: 16px;
+    }
+
+    .modal.open { display: flex; }
+
+    .modal-content {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 10px;
+    }
+
+    .close-btn {
+      background: #ef4444;
+      border: none;
+      color: white;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .market-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #1e293b;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+    }
+
+    .btn-action {
+      background: var(--accent);
+      color: #052e16;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .btn-action:disabled {
+      background: #475569;
+      color: #94a3b8;
+      cursor: not-allowed;
+    }
+
+    /* Toast Flutuante */
+    #toast {
+      position: fixed;
+      top: 75px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--accent);
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s;
+      z-index: 30;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HUD Superior -->
+  <div id="top-hud">
+    <div class="hud-group">
+      <div class="stat-badge"><span class="gold-text">R$</span> <span id="money-display">250</span></div>
+      <div class="stat-badge" id="weather-badge">☀️ Sol (28°C)</div>
+    </div>
+    <div class="hud-group">
+      <div class="stat-badge" onclick="toggleModal('market-modal')" style="cursor:pointer; background:#0284c7;">
+        🛒 Mercado & Silo
+      </div>
+      <div class="stat-badge" title="Servidor Sincronizado">
+        <span class="online-dot"></span> <span id="online-count">14</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ticker Online -->
+  <div id="market-ticker">
+    <span id="ticker-text">📡 CEASA Online: Tomate em alta (+12%) | Pimentão estável | Chuva prevista em breve...</span>
+    <span id="clock-display">Dia 1 - 08:00</span>
+  </div>
+
+  <div id="toast">Ação realizada!</div>
+
+  <!-- Jogo Canvas -->
+  <div id="game-container">
+    <canvas id="farmCanvas" width="420" height="490"></canvas>
+  </div>
+
+  <!-- Barra de Ferramentas Mobile -->
+  <div id="bottom-bar">
+    <button class="tool-btn active" data-tool="hoe">
+      <span class="icon">⛏️</span>
+      <span>Enxada</span>
+      <span class="cost">Grátis</span>
+    </button>
+    <button class="tool-btn" data-tool="water">
+      <span class="icon">💧</span>
+      <span>Irrigar</span>
+      <span class="cost">Grátis</span>
+    </button>
+    <button class="tool-btn" data-tool="seed_tomato">
+      <span class="icon">🍅</span>
+      <span>Tomate</span>
+      <span class="cost">R$ 15</span>
+    </button>
+    <button class="tool-btn" data-tool="seed_pepper">
+      <span class="icon">🫑</span>
+      <span>Pimentão</span>
+      <span class="cost">R$ 25</span>
+    </button>
+    <button class="tool-btn" data-tool="seed_cucumber">
+      <span class="icon">🥒</span>
+      <span>Pepino</span>
+      <span class="cost">R$ 18</span>
+    </button>
+    <button class="tool-btn" data-tool="fertilizer">
+      <span class="icon">🧪</span>
+      <span>Adubo NPK</span>
+      <span class="cost">R$ 12</span>
+    </button>
+    <button class="tool-btn" data-tool="pesticide">
+      <span class="icon">🛡️</span>
+      <span>Defensivo</span>
+      <span class="cost">R$ 15</span>
+    </button>
+    <button class="tool-btn" data-tool="harvest">
+      <span class="icon">🧺</span>
+      <span>Colher</span>
+      <span class="cost">Lucro</span>
+    </button>
+    <button class="tool-btn" data-tool="buy_chicken">
+      <span class="icon">🐔</span>
+      <span>Galinha</span>
+      <span class="cost">R$ 60</span>
+    </button>
+    <button class="tool-btn" data-tool="buy_cow">
+      <span class="icon">🐄</span>
+      <span>Vaca</span>
+      <span class="cost">R$ 140</span>
+    </button>
+    <button class="tool-btn" data-tool="feed">
+      <span class="icon">🌾</span>
+      <span>Ração</span>
+      <span class="cost">R$ 8</span>
+    </button>
+  </div>
+
+  <!-- Modal do Mercado e Cooperativa Online -->
+  <div class="modal" id="market-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📈 CEASA & Cooperativa Online</h3>
+        <button class="close-btn" onclick="toggleModal('market-modal')">✕</button>
+      </div>
+      <p style="font-size:12px; color:#94a3b8;">
+        Os preços variam conforme a oferta global. Venda sua produção ou negocie contratos com outros produtores.
+      </p>
+      <div id="inventory-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+
+      <h4 style="margin-top:8px; border-top:1px solid #334155; padding-top:10px;">🌐 Pedidos da Rede (Multiplayer)</h4>
+      <div id="online-orders" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  </div>
+
+<script>
+/**
+ * CONFIGURAÇÃO E ESTADO DO JOGO
+ */
+const canvas = document.getElementById('farmCanvas');
+const ctx = canvas.getContext('2d');
+
+const COLS = 6;
+const ROWS = 7;
+const TILE_SIZE = 70; // 6x70 = 420, 7x70 = 490 (Rows 0-4: Lavoura, Rows 5-6: Pasto/Curral)
+
+const CROPS = {
+  tomato:   { name: 'Tomate',   icon: '🍅', cost: 15, basePrice: 38, growTime: 18 },
+  pepper:   { name: 'Pimentão', icon: '🫑', cost: 25, basePrice: 62, growTime: 24 },
+  cucumber: { name: 'Pepino',   icon: '🥒', cost: 18, basePrice: 44, growTime: 15 }
+};
+
+let state = {
+  money: 250,
+  selectedTool: 'hoe',
+  weather: 'sun', // 'sun', 'rain'
+  day: 1,
+  hour: 8,
+  inventory: { tomato: 0, pepper: 0, cucumber: 0, egg: 0, milk: 0 },
+  marketPrices: { tomato: 38, pepper: 62, cucumber: 44, egg: 16, milk: 35 },
+  grid: [],
+  animals: [],
+  rainParticles: [],
+  floatingTexts: [],
+  onlineOrders: []
+};
+
+// Inicializar Grade (5 linhas de plantio, 2 linhas de pasto animal)
+function initGrid() {
+  state.grid = [];
+  for (let r = 0; r < ROWS; r++) {
+    let row = [];
+    for (let c = 0; c < COLS; c++) {
+      row.push({
+        type: r < 5 ? 'soil' : 'pasture',
+        tilled: false,
+        water: 0,         // 0 a 100
+        crop: null,       // 'tomato', 'pepper', 'cucumber'
+        stage: 0,         // 0 a 3 (3 = pronto para colheita)
+        progress: 0,
+        fertilized: false,
+        hasPest: false
+      });
+    }
+    state.grid.push(row);
+  }
+}
+
+// Carregar jogo salvo
+function loadGame() {
+  const saved = localStorage.getItem('agrosim_save_v1');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      state.money = parsed.money ?? 250;
+      state.inventory = parsed.inventory ?? state.inventory;
+      state.grid = parsed.grid ?? state.grid;
+      state.animals = parsed.animals ?? [];
+      state.day = parsed.day ?? 1;
+    } catch (e) { initGrid(); }
+  } else {
+    initGrid();
+    // Adicionar 1 galinha inicial no pasto
+    state.animals.push({
+      type: 'chicken', x: 120, y: 390, vx: 0.4, vy: 0.2,
+      hungry: false, productReady: false, timer: 0
+    });
+  }
+  generateOnlineOrders();
+  updateUI();
+}
+
+function saveGame() {
+  localStorage.setItem('agrosim_save_v1', JSON.stringify({
+    money: state.money,
+    inventory: state.inventory,
+    grid: state.grid,
+    animals: state.animals,
+    day: state.day
+  }));
+}
+
+/**
+ * SISTEMA DE NOTIFICAÇÕES E EFEITOS VISUAIS
+ */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(window.toastTimer);
+  window.toastTimer = setTimeout(() => t.style.opacity = '0', 2000);
+}
+
+function addFloatingText(text, x, y, color = '#fff') {
+  state.floatingTexts.push({ text, x, y, alpha: 1, color });
+}
+
+/**
+ * INTERAÇÃO TOUCH E MOUSE NO CANVAS
+ */
+function handleCanvasInput(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (clientX - rect.left) * scaleX;
+  const y = (clientY - rect.top) * scaleY;
+
+  const col = Math.floor(x / TILE_SIZE);
+  const row = Math.floor(y / TILE_SIZE);
+
+  if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return;
+
+  // Se clicou na área do pasto (linhas 5 e 6)
+  if (row >= 5) {
+    handlePastureInteraction(x, y);
+    return;
+  }
+
+  // Área de lavoura (linhas 0 a 4)
+  const tile = state.grid[row][col];
+  const centerX = col * TILE_SIZE + TILE_SIZE / 2;
+  const centerY = row * TILE_SIZE + TILE_SIZE / 2;
+  const tool = state.selectedTool;
+
+  if (tool === 'hoe') {
+    if (!tile.tilled) {
+      tile.tilled = true;
+      addFloatingText('Terra Arada', centerX, centerY, '#fde047');
+    } else if (tile.crop && tile.hasPest) {
+      showToast('Use o Defensivo para eliminar a praga!');
+    }
+  } 
+  else if (tool === 'water') {
+    if (!tile.tilled) return showToast('Are a terra com a enxada primeiro!');
+    tile.water = 100;
+    addFloatingText('+Água 💧', centerX, centerY, '#38bdf8');
+  } 
+  else if (tool.startsWith('seed_')) {
+    const cropKey = tool.replace('seed_', '');
+    const cropData = CROPS[cropKey];
+    if (!tile.tilled) return showToast('Are a terra antes de plantar!');
+    if (tile.crop) return showToast('Este canteiro já está ocupado!');
+    if (state.money < cropData.cost) return showToast('Saldo insuficiente!');
+
+    state.money -= cropData.cost;
+    tile.crop = cropKey;
+    tile.stage = 0;
+    tile.progress = 0;
+    addFloatingText(`-R$${cropData.cost}`, centerX, centerY, '#f87171');
+  } 
+  else if (tool === 'fertilizer') {
+    if (!tile.crop) return showToast('Plante algo antes de adubar!');
+    if (tile.fertilized) return showToast('Canteiro já adubado com NPK!');
+    if (state.money < 12) return showToast('Saldo insuficiente!');
+
+    state.money -= 12;
+    tile.fertilized = true;
+    addFloatingText('NPK Aplicado ⚡', centerX, centerY, '#4ade80');
+  } 
+  else if (tool === 'pesticide') {
+    if (!tile.hasPest) return showToast('Nenhuma praga neste canteiro!');
+    if (state.money < 15) return showToast('Saldo insuficiente!');
+
+    state.money -= 15;
+    tile.hasPest = false;
+    addFloatingText('Praga Eliminada 🛡️', centerX, centerY, '#60a5fa');
+  } 
+  else if (tool === 'harvest') {
+    if (tile.crop && tile.stage === 3) {
+      if (tile.hasPest) return showToast('Elimine a praga antes de colher!');
+      const yieldAmount = tile.fertilized ? 2 : 1;
+      state.inventory[tile.crop] += yieldAmount;
+      const icon = CROPS[tile.crop].icon;
+      addFloatingText(`+${yieldAmount} ${icon}`, centerX, centerY, '#4ade80');
+
+      // Resetar canteiro após colheita
+      tile.crop = null;
+      tile.stage = 0;
+      tile.progress = 0;
+      tile.fertilized = false;
+      tile.water = Math.max(0, tile.water - 30);
+    } else {
+      showToast('A planta ainda não está pronta para colheita.');
+    }
+  }
+
+  updateUI();
+  saveGame();
+}
+
+function handlePastureInteraction(x, y) {
+  const tool = state.selectedTool;
+
+  if (tool === 'buy_chicken') {
+    if (state.money < 60) return showToast('Saldo insuficiente (R$ 60)!');
+    state.money -= 60;
+    state.animals.push({
+      type: 'chicken', x, y, vx: (Math.random() - 0.5) * 0.8, vy: (Math.random() - 0.5) * 0.6,
+      hungry: false, productReady: false, timer: 0
+    });
+    addFloatingText('+Galinha 🐔', x, y, '#fde047');
+    updateUI();
+    return;
+  }
+
+  if (tool === 'buy_cow') {
+    if (state.money < 140) return showToast('Saldo insuficiente (R$ 140)!');
+    state.money -= 140;
+    state.animals.push({
+      type: 'cow', x, y, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.4,
+      hungry: false, productReady: false, timer: 0
+    });
+    addFloatingText('+Vaca 🐄', x, y, '#fde047');
+    updateUI();
+    return;
+  }
+
+  // Verificar clique em cima de um animal
+  for (let anim of state.animals) {
+    const dist = Math.hypot(anim.x - x, anim.y - y);
+    if (dist < 32) {
+      if (anim.productReady) {
+        const prod = anim.type === 'chicken' ? 'egg' : 'milk';
+        const icon = anim.type === 'chicken' ? '🥚' : '🥛';
+        state.inventory[prod] += 1;
+        anim.productReady = false;
+        anim.hungry = true;
+        anim.timer = 0;
+        addFloatingText(`+1 ${icon}`, anim.x, anim.y, '#4ade80');
+        updateUI();
+        return;
+      } else if (tool === 'feed' && anim.hungry) {
+        if (state.money < 8) return showToast('Saldo insuficiente para ração!');
+        state.money -= 8;
+        anim.hungry = false;
+        addFloatingText('Alimentado 🌾', anim.x, anim.y, '#fde047');
+        updateUI();
+        return;
+      } else if (anim.hungry) {
+        showToast('Selecione Ração (🌾) para alimentar o animal!');
+        return;
+      } else {
+        showToast('Produzindo... aguarde!');
+        return;
+      }
+    }
+  }
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  handleCanvasInput(e.clientX, e.clientY);
+});
+
+/**
+ * LOOP DE SIMULAÇÃO AGRÍCOLA E CLIMA (1x por segundo)
+ */
+setInterval(() => {
+  // Avançar relógio
+  state.hour++;
+  if (state.hour >= 24) {
+    state.hour = 0;
+    state.day++;
+  }
+
+  // Mudança climática dinâmica
+  if (Math.random() < 0.08) {
+    state.weather = state.weather === 'sun' ? 'rain' : 'sun';
+    const wBadge = document.getElementById('weather-badge');
+    if (state.weather === 'rain') {
+      wBadge.textContent = '🌧️ Chuva (21°C)';
+      showToast('Começou a chover! Irrigação automática ativa.');
+    } else {
+      wBadge.textContent = '☀️ Sol (28°C)';
+    }
+  }
+
+  // Atualizar Lavoura
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < COLS; c++) {
+      let tile = state.grid[r][c];
+
+      if (state.weather === 'rain' && tile.tilled) {
+        tile.water = Math.min(100, tile.water + 20);
+      } else if (tile.water > 0) {
+        tile.water = Math.max(0, tile.water - 3);
+      }
+
+      if (tile.crop && tile.stage < 3) {
+        // Chance de surgimento de praga (Lagarta/Mosca-branca)
+        if (!tile.hasPest && Math.random() < 0.015) {
+          tile.hasPest = true;
+          addFloatingText('⚠️ Praga!', c * TILE_SIZE + 35, r * TILE_SIZE + 35, '#ef4444');
+        }
+
+        // Crescimento (só cresce se tiver água e não tiver praga)
+        if (tile.water > 0 && !tile.hasPest) {
+          const speed = tile.fertilized ? 2.0 : 1.0;
+          tile.progress += speed;
+          const needed = CROPS[tile.crop].growTime / 3;
+          if (tile.progress >= needed) {
+            tile.progress = 0;
+            tile.stage++;
+          }
+        }
+      }
+    }
+  }
+
+  // Atualizar Animais
+  for (let anim of state.animals) {
+    if (!anim.hungry && !anim.productReady) {
+      anim.timer++;
+      const targetTime = anim.type === 'chicken' ? 12 : 18;
+      if (anim.timer >= targetTime) {
+        anim.productReady = true;
+      }
+    }
+  }
+
+  // Atualizar Relógio HUD
+  const hStr = String(state.hour).padStart(2, '0') + ':00';
+  document.getElementById('clock-display').textContent = `Dia ${state.day} - ${hStr}`;
+  saveGame();
+}, 1000);
+
+/**
+ * SIMULAÇÃO DE MERCADO ONLINE (Cotação CEASA + Cooperativa)
+ */
+function generateOnlineOrders() {
+  const players = ['Fazenda_Vassouras', 'AgroTech_RJ', 'HortiSul_Br', 'Estufa_Real', 'Coop_Verde'];
+  const items = [
+    { key: 'tomato', name: 'Tomate 🍅' },
+    { key: 'pepper', name: 'Pimentão 🫑' },
+    { key: 'cucumber', name: 'Pepino 🥒' },
+    { key: 'milk', name: 'Leite 🥛' }
+  ];
+
+  state.onlineOrders = [];
+  for (let i = 0; i < 3; i++) {
+    const p = players[Math.floor(Math.random() * players.length)];
+    const item = items[Math.floor(Math.random() * items.length)];
+    const qty = Math.floor(Math.random() * 4) + 2;
+    const reward = Math.round(state.marketPrices[item.key] * qty * 1.25); // 25% bônus de contrato
+    state.onlineOrders.push({ id: i, player: p, itemKey: item.key, itemName: item.name, qty, reward });
+  }
+}
+
+setInterval(() => {
+  // Flutuação de preços em tempo real
+  for (let k in state.marketPrices) {
+    const change = (Math.random() - 0.48) * 6;
+    state.marketPrices[k] = Math.max(10, Math.round(state.marketPrices[k] + change));
+  }
+  document.getElementById('online-count').textContent = 12 + Math.floor(Math.random() * 9);
+  document.getElementById('ticker-text').textContent =
+    `📡 CEASA Online: 🍅 R$${state.marketPrices.tomato} | 🫑 R$${state.marketPrices.pepper} | 🥒 R$${state.marketPrices.cucumber} | 🥛 R$${state.marketPrices.milk}`;
+
+  if (document.getElementById('market-modal').classList.contains('open')) {
+    renderMarketModal();
+  }
+}, 6000);
+
+/**
+ * RENDERIZAÇÃO GRÁFICA (60 FPS)
+ */
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 1. Desenhar Lavoura (Linhas 0 a 4)
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const tile = state.grid[r][c];
+      const x = c * TILE_SIZE;
+      const y = r * TILE_SIZE;
+
+      // Grama de fundo
+      ctx.fillStyle = '#4ade80';
+      ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+
+      // Canteiro
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)';
+      ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+
+      if (tile.tilled) {
+        // Cor da terra depende da umidade
+        ctx.fillStyle = tile.water > 20 ? '#5c3a21' : '#854d27';
+        ctx.beginPath();
+        ctx.roundRect(x + 5, y + 5, TILE_SIZE - 10, TILE_SIZE - 10, 8);
+        ctx.fill();
+
+        // Barra de água do canteiro
+        if (tile.water > 0) {
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(x + 10, y + TILE_SIZE - 10, ((TILE_SIZE - 20) * tile.water) / 100, 4);
+        }
+      }
+
+      // Indicador de Adubo NPK
+      if (tile.fertilized) {
+        ctx.fillStyle = '#fde047';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('⚡NPK', x + 8, y + 16);
+      }
+
+      // Planta
+      if (tile.crop) {
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let emoji = '🌱';
+        let size = '20px';
+        if (tile.stage === 1) { emoji = '🌿'; size = '24px'; }
+        else if (tile.stage === 2) { emoji = '🪴'; size = '26px'; }
+        else if (tile.stage === 3) { emoji = CROPS[tile.crop].icon; size = '32px'; }
+
+        ctx.font = `${size} sans-serif`;
+        ctx.fillText(emoji, x + TILE_SIZE / 2, y + TILE_SIZE / 2);
+
+        // Praga na planta
+        if (tile.hasPest) {
+          ctx.font = '18px sans-serif';
+          ctx.fillText('🐛', x + TILE_SIZE - 16, y + 18);
+        }
+      }
+    }
+  }
+
+  // 2. Desenhar Curral / Pasto (Linhas 5 e 6)
+  const pastureY = 5 * TILE_SIZE;
+  ctx.fillStyle = '#86efac';
+  ctx.fillRect(0, pastureY, canvas.width, 2 * TILE_SIZE);
+
+  // Cerca de madeira
+  ctx.strokeStyle = '#78350f';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(4, pastureY + 4, canvas.width - 8, 2 * TILE_SIZE - 8);
+  ctx.lineWidth = 1;
+
+  ctx.fillStyle = '#14532d';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('🏡 Pasto & Criação (Toque no animal para coletar / alimentar)', 12, pastureY + 18);
+
+  // 3. Atualizar e Desenhar Animais
+  for (let anim of state.animals) {
+    anim.x += anim.vx;
+    anim.y += anim.vy;
+
+    // Colisão com a cerca do pasto
+    if (anim.x < 25 || anim.x > canvas.width - 25) anim.vx *= -1;
+    if (anim.y < pastureY + 32 || anim.y > canvas.height - 25) anim.vy *= -1;
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '30px sans-serif';
+    ctx.fillText(anim.type === 'chicken' ? '🐔' : '🐄', anim.x, anim.y);
+
+    // Balão de status sobre o animal
+    if (anim.productReady) {
+      ctx.font = '18px sans-serif';
+      ctx.fillText(anim.type === 'chicken' ? '🥚' : '🥛', anim.x, anim.y - 24);
+    } else if (anim.hungry) {
+      ctx.font = '16px sans-serif';
+      ctx.fillText('🍽️', anim.x, anim.y - 24);
+    }
+  }
+
+  // 4. Efeito de Chuva
+  if (state.weather === 'rain') {
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = 'rgba(186, 230, 253, 0.7)';
+    ctx.lineWidth = 1.5;
+    if (state.rainParticles.length < 45) {
+      state.rainParticles.push({ x: Math.random() * canvas.width, y: -10, s: 6 + Math.random() * 4 });
+    }
+    for (let p of state.rainParticles) {
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x - 3, p.y + 10);
+      ctx.stroke();
+      p.y += p.s;
+      p.x -= 1;
+      if (p.y > canvas.height) {
+        p.y = -10;
+        p.x = Math.random() * canvas.width;
+      }
+    }
+  }
+
+  // 5. Textos Flutuantes
+  for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+    let ft = state.floatingTexts[i];
+    ctx.fillStyle = ft.color;
+    ctx.globalAlpha = ft.alpha;
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.globalAlpha = 1.0;
+
+    ft.y -= 0.7;
+    ft.alpha -= 0.02;
+    if (ft.alpha <= 0) state.floatingTexts.splice(i, 1);
+  }
+
+  requestAnimationFrame(draw);
+}
+
+/**
+ * INTERFACE E MERCADO
+ */
+function updateUI() {
+  document.getElementById('money-display').textContent = state.money;
+}
+
+document.querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.selectedTool = btn.dataset.tool;
+  });
+});
+
+function toggleModal(id) {
+  const modal = document.getElementById(id);
+  modal.classList.toggle('open');
+  if (modal.classList.contains('open')) {
+    renderMarketModal();
+  }
+}
+
+function renderMarketModal() {
+  const invContainer = document.getElementById('inventory-list');
+  const itemsInfo = [
+    { key: 'tomato', name: 'Tomate 🍅' },
+    { key: 'pepper', name: 'Pimentão 🫑' },
+    { key: 'cucumber', name: 'Pepino 🥒' },
+    { key: 'egg', name: 'Ovos Caipira 🥚' },
+    { key: 'milk', name: 'Leite Fresco 🥛' }
+  ];
+
+  invContainer.innerHTML = '';
+  itemsInfo.forEach(item => {
+    const qty = state.inventory[item.key] || 0;
+    const price = state.marketPrices[item.key];
+    const div = document.createElement('div');
+    div.className = 'market-item';
+    div.innerHTML = `
+      <div>
+        <strong>${item.name}</strong>
+        <div style="font-size:11px; color:#94a3b8;">Estoque: ${qty} un. | Cotação: R$ ${price}</div>
+      </div>
+      <button class="btn-action" ${qty <= 0 ? 'disabled' : ''} onclick="sellItem('${item.key}')">
+        Vender Tudo (R$ ${qty * price})
+      </button>
+    `;
+    invContainer.appendChild(div);
+  });
+
+  const ordersContainer = document.getElementById('online-orders');
+  ordersContainer.innerHTML = '';
+  state.onlineOrders.forEach(ord => {
+    const hasEnough = (state.inventory[ord.itemKey] || 0) >= ord.qty;
+    const div = document.createElement('div');
+    div.className = 'market-item';
+    div.innerHTML = `
+      <div>
+        <strong style="color:#38bdf8;">@${ord.player}</strong> pede <strong>${ord.qty}x ${ord.itemName}</strong>
+        <div style="font-size:11px; color:#fde047;">Pagamento: R$ ${ord.reward} (Bônus Coop)</div>
+      </div>
+      <button class="btn-action" ${!hasEnough ? 'disabled' : ''} onclick="fulfillOrder(${ord.id})">
+        Entregar
+      </button>
+    `;
+    ordersContainer.appendChild(div);
+  });
+}
+
+window.sellItem = function(key) {
+  const qty = state.inventory[key];
+  if (qty > 0) {
+    const total = qty * state.marketPrices[key];
+    state.money += total;
+    state.inventory[key] = 0;
+    showToast(`Venda concluída: +R$ ${total}!`);
+    updateUI();
+    renderMarketModal();
+    saveGame();
+  }
+};
+
+window.fulfillOrder = function(orderId) {
+  const idx = state.onlineOrders.findIndex(o => o.id === orderId);
+  if (idx === -1) return;
+  const ord = state.onlineOrders[idx];
+  if (state.inventory[ord.itemKey] >= ord.qty) {
+    state.inventory[ord.itemKey] -= ord.qty;
+    state.money += ord.reward;
+    state.onlineOrders.splice(idx, 1);
+    if (state.onlineOrders.length === 0) generateOnlineOrders();
+    showToast(`Contrato entregue para @${ord.player}! +R$ ${ord.reward}`);
+    updateUI();
+    renderMarketModal();
+    saveGame();
+  }
+};
+
+// Iniciar Jogo
+loadGame();
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
